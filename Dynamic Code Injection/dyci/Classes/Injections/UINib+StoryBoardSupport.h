@@ -9,7 +9,6 @@
 #import <UIKit/UIKit.h>
 
 
-#if TARGET_IPHONE_SIMULATOR
 
 /*
  It seems that storyboard passing some options, when instantiating the nibs
@@ -24,5 +23,3 @@ Returns options, saved for the owner
 + (NSDictionary *)optionsByOwner:(id)owner;
 
 @end
-
-#endif

@@ -8,7 +8,6 @@
 
 #import "SFInjectionsNotificationsCenter.h"
 
-#if TARGET_IPHONE_SIMULATOR
 
 /*
  notification.object will be the class that was injected
@@ -132,5 +131,3 @@ This will notiy all registered classes about that some resource was injected
 
 @end
 
-
-#endif

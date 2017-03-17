@@ -8,7 +8,6 @@
 #import <objc/runtime.h>
 #import "NSSet+ClassesList.h"
 
-#if TARGET_IPHONE_SIMULATOR
 
 DYCI_FIX_CATEGORY_BUG(NSSet_ClassesList);
 
@@ -32,5 +31,3 @@ DYCI_FIX_CATEGORY_BUG(NSSet_ClassesList);
 }
 
 @end
-
-#endif

@@ -8,7 +8,6 @@
 
 #import "SFFileWatcher.h"
 
-#if TARGET_IPHONE_SIMULATOR
 
 @implementation SFFileWatcher {
 
@@ -100,5 +99,3 @@
 
 
 @end
-
-#endif
