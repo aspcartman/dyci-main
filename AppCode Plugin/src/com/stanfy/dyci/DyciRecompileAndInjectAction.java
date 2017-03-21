@@ -1,37 +1,29 @@
 package com.stanfy.dyci;
 
-import com.intellij.execution.impl.ProjectRunConfigurationManager;
+import com.intellij.execution.ui.ConsoleViewContentType;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.MessageType;
-import com.intellij.openapi.ui.popup.Balloon;
-import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.wm.StatusBar;
-import com.intellij.openapi.wm.WindowManager;
-import com.intellij.ui.awt.RelativePoint;
 
 import com.intellij.xdebugger.XDebugSession;
 import com.intellij.xdebugger.XDebuggerManager;
-import com.intellij.xdebugger.evaluation.XDebuggerEvaluator;
-import com.intellij.xdebugger.frame.XValue;
 import com.jetbrains.cidr.execution.*;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
-import javax.xml.xpath.*;
-
-import com.jetbrains.cidr.lang.search.AppCodeProjectScopeBuilder;
+import com.jetbrains.cidr.execution.deviceSupport.AMDevice;
+import com.jetbrains.cidr.execution.deviceSupport.AMDeviceException;
+import org.apache.log4j.Level;
+import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
-import org.xml.sax.InputSource;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Created with IntelliJ IDEA.
@@ -41,60 +33,111 @@ import org.xml.sax.InputSource;
  * LLC Stanfy, All Rights Reserved.
  */
 public class DyciRecompileAndInjectAction extends AnAction {
+	private Project project;
+	private Logger logger;
+	private String dyciPath = System.getProperty("user.home") + "/.dyci";
 
-	static final Logger LOG = Logger.getInstance(DyciRecompileAndInjectAction.class);
+	private class BinaryInfo {
+		String bundleIdentifier;
+		String codeSignature;
+	}
 
 	@Override
 	public void actionPerformed(final AnActionEvent actionEvent) {
-		FileDocumentManager.getInstance().saveAllDocuments();
-		VirtualFile currentFile = actionEvent.getData(PlatformDataKeys.VIRTUAL_FILE);
+		try {
+			setup(actionEvent);
+
+			String updatedFile = getCurrentFilePath(actionEvent);
+			BuildConfiguration configuration = getBuildConfiguration();
+			BinaryInfo binaryInfo = getBinaryInfo(configuration.getExecutableFilePath());
+
+			runCompileScript(updatedFile, binaryInfo.codeSignature);
+			sendDataToDevice(configuration.getDestination().getDevice(), binaryInfo.bundleIdentifier);
+		} catch (Exception e) {
+			logger.error(e);
+			throw e;
+		}
+
 
 		// Check if current virtual file is not null
-		if (currentFile == null) {
-			this.showMessageBubble(actionEvent, MessageType.ERROR, "Cannot run injection. Incorrect file specified");
-			return;
+	}
+
+	private void setup(AnActionEvent actionEvent) {
+		project = actionEvent.getProject();
+		logger = getLogger();
+		if (project == null) {
+			throw new RuntimeException("No project");
+		}
+		FileDocumentManager.getInstance().saveAllDocuments();
+	}
+
+	@NotNull
+	private String getCurrentFilePath(AnActionEvent actionEvent) {
+		VirtualFile currentFile = actionEvent.getData(PlatformDataKeys.VIRTUAL_FILE);
+		if (currentFile == null || currentFile.getCanonicalPath() == null) {
+			throw new RuntimeException("Current file is not acceptable");
 		}
 
-		String path = currentFile.getCanonicalPath();
-
-		// Injection
-		this.injectFile(actionEvent, path);
+		return currentFile.getCanonicalPath();
 	}
 
-	private void injectFile(final AnActionEvent actionEvent, final String path) {
-		final String home = System.getProperty("user.home");
-		final String dyciHome = home + "/.dyci";
-
-		runCompileScript(actionEvent, dyciHome, path);
-		sendDataToDevices(actionEvent, dyciHome);
+	@NotNull
+	private BuildConfiguration getBuildConfiguration() {
+		BuildConfigurationManager manager = project.getComponent(BuildConfigurationManager.class);
+		BuildConfiguration selectedConfiguration = manager.getSelectedConfiguration();
+		if (selectedConfiguration == null) {
+			throw new RuntimeException("No build configuration selected");
+		}
+		return selectedConfiguration;
 	}
 
-	private void runCompileScript(AnActionEvent actionEvent, String dyciHome, String path) {
-		final String dyciScriptLocation = dyciHome + "/scripts/dyci-recompile.py";
+
+	@NotNull
+	private BinaryInfo getBinaryInfo(String binaryPath) {
+		String commands[] = {"codesign", "-d", "-vvvv", binaryPath};
+		BinaryInfo binaryInfo = new BinaryInfo();
+
+		try {
+			Process proc = Runtime.getRuntime().exec(commands);
+			int exitCode = proc.waitFor();
+
+			// For the reason unknown codesign writes to stdErr
+			BufferedReader stdError = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
+			String s;
+			while ((s = stdError.readLine()) != null) {
+				if (s.startsWith("Identifier=")) {
+					binaryInfo.bundleIdentifier = s.substring("Identifier=".length(), s.length());
+				}
+				if (s.startsWith("Authority=") && s.indexOf('(') != -1) {
+					binaryInfo.codeSignature =  s.substring(s.length() - 11, s.length() - 1);
+				}
+			}
+
+			if (exitCode != 0 || binaryInfo.bundleIdentifier == null || binaryInfo.codeSignature == null) {
+				throw new RuntimeException("Error getting codesign\n");
+			}
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+
+		return binaryInfo;
+	}
+
+	private void runCompileScript(String filePath, String signature) {
+		final String dyciScriptLocation = dyciPath + "/scripts/dyci-recompile.py";
 		final File dyciScriptLocationFile = new File(dyciScriptLocation);
-		LOG.info("Dyci file location is " + dyciScriptLocationFile.getAbsolutePath());
+		logger.info("Dyci file location is " + dyciScriptLocationFile.getAbsolutePath());
 
 		if (!dyciScriptLocationFile.exists()) {
-			this.showMessageBubble(actionEvent, MessageType.ERROR, "Cannot run injection. No Dyci scripts were found. Make sure, that you've ran install.sh");
+			logger.error("Cannot run injection. No Dyci scripts were found. Make sure, that you've ran install.sh");
 			return;
 		}
 
-		String appcodeOptionsFilename = System.getProperty("user.home") + "/Library/Preferences/appCode30/options/other.xml";
-
-		String[] commands;
-		try {
-			FileReader appcodeOptions = new FileReader(appcodeOptionsFilename);
-			String xcodePath = xcodePath(actionEvent, appcodeOptions);
-			commands = new String[]{dyciScriptLocation, path, xcodePath};
-		} catch (IOException e) {
-			// If the file cannot be found, it might not be a problem (user has appcode 2 or maybe the setting wasn't saved)
-			// We'll just leave it up to the dyci script to find Xcode.
-			commands = new String[]{dyciScriptLocation, path};
-		}
-
+		String[] commands = new String[]{dyciScriptLocation, filePath, signature};
 		Runtime rt = Runtime.getRuntime();
 		try {
 			Process proc = rt.exec(commands);
+			int exitCode = proc.waitFor();
 
 			BufferedReader stdInput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
 			BufferedReader stdError = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
@@ -105,97 +148,129 @@ public class DyciRecompileAndInjectAction extends AnAction {
 			String s;
 			while ((s = stdInput.readLine()) != null) {
 				standardOutput.append(s);
+				standardOutput.append('\n');
 			}
 
 			// read any errors from the attempted command
 			while ((s = stdError.readLine()) != null) {
 				errorOutput.append(s);
+				errorOutput.append('\n');
 			}
 
 			// All is OK!
-			if (proc.exitValue() == 0) {
-				this.showMessageBubble(actionEvent, MessageType.INFO, "File " + path + " was successfully injected\n" + standardOutput.toString());
+			if (exitCode == 0) {
+				logger.info("File " + filePath + " was successfully compiled\n" + standardOutput.toString() + errorOutput.toString());
 			} else {
-				this.showMessageBubble(actionEvent, MessageType.ERROR, "File " + path + " was not injected successfully\n" + errorOutput.toString());
+				throw new RuntimeException("File " + filePath + " was not compiled successfully\n" + standardOutput.toString() + errorOutput.toString());
 			}
-		} catch (IOException e) {
-			LOG.error("Exception on script run : " + e.getMessage());
-			this.showMessageBubble(actionEvent, MessageType.ERROR, "Failed to run injection script");
-		}
-	}
-
-	private void sendDataToDevices(AnActionEvent actionEvent, String dyciHome) {
-		Project project = actionEvent.getProject();
-		if (project == null) {
-			LOG.error("No project");
-			return;
-		}
-		XDebuggerManager debuggerManager = XDebuggerManager.getInstance(project);
-		XDebugSession currentSession = debuggerManager.getCurrentSession();
-		if (currentSession == null){
-			LOG.error("No current debbuging session running");
-			return;
-		}
-
-		currentSession.pause();
-		while (!currentSession.isPaused()) {
-			waitABit();
-		}
-
-		XDebuggerEvaluator evaluator = currentSession.getDebugProcess().getEvaluator();
-		if (evaluator == null) {
-			LOG.error("No evaluator");
-			return;
-		}
-
-		evaluator.evaluate("123+345", new XDebuggerEvaluator.XEvaluationCallback() {
-			@Override
-			public void evaluated(@NotNull XValue xValue) {
-				LOG.debug("Evaluated", xValue);
-			}
-
-			@Override
-			public void errorOccurred(@NotNull String s) {
-				LOG.error("Evaluation failed", s);
-			}
-		}, null);
-	}
-
-	private void waitABit() {
-		try {
-			Thread.sleep(1000);                 //1000 milliseconds is one second.
-		} catch(InterruptedException ex) {
-			Thread.currentThread().interrupt();
-		}
-	}
-
-	private String xcodePath(final AnActionEvent actionEvent, java.io.FileReader fileReader) {
-		String xpathExpression = "/application/component[@name='XcodeSettings']/option[@name='selectedXcode']/@value";
-		String result = null;
-
-		XPathFactory xpathFactory = XPathFactory.newInstance();
-		XPath xpath = xpathFactory.newXPath();
-		try {
-			XPathExpression expr = xpath.compile(xpathExpression);
-			InputSource inputSource = new InputSource(fileReader);
-			result = expr.evaluate(inputSource);
 		} catch (Exception e) {
-			LOG.error("Exception getting Xcode path: " + e.getMessage());
-			this.showMessageBubble(actionEvent, MessageType.ERROR, "Failed to run injection script");
+			throw new RuntimeException(e);
+		}
+	}
+
+	private void sendDataToDevice(AMDevice device, String bundleIdentifier) {
+		try {
+			device.disconnect();
+			device.connect();
+			device.transferDirectoryToApplicationSandbox(dyciPath + "/dyci", "tmp", bundleIdentifier);
+		} catch (AMDeviceException e) {
+			e.printStackTrace();
+			System.err.println(e);
+			logger.error("Failed sending the injection file to the device", e);
 		}
 
-		return result;
+		logger.info("Sent new injection file to the device");
+
 	}
 
-	/**
-	 * Shows Error bubble
-	 *
-	 * @param actionEvent was passed via action Performed
-	 * @param messageType type of balloon
-	 * @param message     that will be shown
-	 */
-	private void showMessageBubble(final AnActionEvent actionEvent, final MessageType messageType, final String message) {
-		StatusBar statusBar = WindowManager.getInstance().getStatusBar(actionEvent.getData(PlatformDataKeys.PROJECT));
-		JBPopupFactory.getInstance().createHtmlTextBalloonBuilder(message, messageType, null).setFadeoutTime(7500).createBalloon().show(RelativePoint.getCenterOf(statusBar.getComponent()), Balloon.Position.atRight);
+
+	private Logger getLogger() {
+		return new Logger() {
+			XDebugSession currentSession = XDebuggerManager.getInstance(project).getCurrentSession();
+			Logger logger = Logger.getInstance(DyciRecompileAndInjectAction.class);
+
+			@Override
+			public boolean isDebugEnabled() {
+				return false;
+			}
+
+			@Override
+			public void debug(@NonNls String s) {
+				if (currentSession.getConsoleView() != null) {
+					currentSession.getConsoleView().print(s + "\n", ConsoleViewContentType.NORMAL_OUTPUT);
+				}
+				logger.debug(s);
+			}
+
+			@Override
+			public void debug(@Nullable Throwable throwable) {
+				if (currentSession.getConsoleView() != null && throwable != null) {
+					currentSession.getConsoleView().print(throwable.toString() + "\n", ConsoleViewContentType.NORMAL_OUTPUT);
+				}
+				logger.debug(throwable);
+			}
+
+			@Override
+			public void debug(@NonNls String s, @Nullable Throwable throwable) {
+				if (throwable != null) {
+					s = s + throwable.toString();
+				}
+				if (currentSession.getConsoleView() != null) {
+					currentSession.getConsoleView().print(s + "\n", ConsoleViewContentType.NORMAL_OUTPUT);
+				}
+				logger.debug(s, throwable);
+			}
+
+			@Override
+			public void info(@NonNls String s) {
+				if (currentSession.getConsoleView() != null) {
+					currentSession.getConsoleView().print(s + "\n", ConsoleViewContentType.NORMAL_OUTPUT);
+				}
+				logger.info(s);
+			}
+
+			@Override
+			public void info(@NonNls String s, @Nullable Throwable throwable) {
+				if (throwable != null) {
+					s = s + throwable.toString();
+				}
+				if (currentSession.getConsoleView() != null) {
+					currentSession.getConsoleView().print(s + "\n", ConsoleViewContentType.NORMAL_OUTPUT);
+				}
+				logger.info(s, throwable);
+			}
+
+			@Override
+			public void warn(@NonNls String s, @Nullable Throwable throwable) {
+				if (throwable != null) {
+					s = s + throwable.toString();
+				}
+				if (currentSession.getConsoleView() != null) {
+					currentSession.getConsoleView().print(s + "\n", ConsoleViewContentType.NORMAL_OUTPUT);
+				}
+				logger.warn(s, throwable);
+			}
+
+			@Override
+			public void error(@NonNls String s, @Nullable Throwable throwable, @NonNls @NotNull String... strings) {
+				if (throwable != null) {
+					s = s + throwable.toString();
+				}
+				for (String str : strings) {
+					s = s + str;
+				}
+				if (currentSession.getConsoleView() != null) {
+					currentSession.getConsoleView().print(s + "\n", ConsoleViewContentType.ERROR_OUTPUT);
+				}
+				logger.error(s, throwable, strings);
+			}
+
+			@Override
+			public void setLevel(Level level) {
+
+			}
+
+		};
 	}
+
 }

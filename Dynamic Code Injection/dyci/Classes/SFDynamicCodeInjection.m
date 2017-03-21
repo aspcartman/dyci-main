@@ -52,7 +52,6 @@
 
 + (void) enable
 {
-
 	SFDynamicCodeInjection *injection = [self sharedInstance];
 	if (injection->_enabled) {
 		return;
@@ -62,16 +61,15 @@
 	// Swizzling init and dealloc methods
 	[NSObject allowInjectionSubscriptionOnInitMethod];
 
-	NSString *dciDirectoryPath = self.dciDirectoryPath;
 
 	// Saving application bundle path, to have ability to inject
 	// Resources, xibs, etc
-	[self saveCurrentApplicationBundlePath:dciDirectoryPath];
+//	[self saveCurrentApplicationBundlePath:dciDirectoryPath];
 
 	// Setting up watcher, to get in touch with director contents
-	injection->_dciDirectoryFileWatcher = [SFFileWatcher fileWatcherWithPath:dciDirectoryPath delegate:injection];
+    NSString *dyciPath = [self createDirectory];
+    injection->_dciDirectoryFileWatcher = [SFFileWatcher fileWatcherWithPath:dyciPath delegate:injection];
 }
-
 
 + (void) disable
 {
@@ -92,42 +90,11 @@
 	NSLog(@"============================================");
 }
 
-#pragma mark - Checking for Library
 
-+ (NSString *) dciDirectoryPath
-{
-
-	char     *userENV          = getenv("USER");
-	NSString *dciDirectoryPath = nil;
-	if (userENV != NULL) {
-		dciDirectoryPath = [NSString stringWithFormat:@"/Users/%s/.dyci/", userENV];
-	} else {
-		// Fallback to the path, since, we cannot get USER variable
-		NSString *simUserDirectoryPath = [@"~" stringByExpandingTildeInPath];
-
-		// Assume default installation, which will have /Users/{username}/ structure
-		NSArray *simUserDirectoryPathComponents = [simUserDirectoryPath pathComponents];
-		if (simUserDirectoryPathComponents.count > 3) {
-			// Get first 3 components
-			NSMutableArray *macUserDirectoryPathComponents = [[simUserDirectoryPathComponents subarrayWithRange:NSMakeRange(0, 3)] mutableCopy];
-			[macUserDirectoryPathComponents addObject:@".dyci"];
-			dciDirectoryPath = [NSString pathWithComponents:macUserDirectoryPathComponents];
-		}
-
-		NSFileManager *fileManager = [NSFileManager defaultManager];
-		if (![fileManager fileExistsAtPath:dciDirectoryPath]) {
-			// Fallback for users who have changed default HOME directiory path
-			// So Idea is that whe have USERHOME/Library/Developer.... etc
-			// So we should put everything we can before Library developer
-			//
-			NSRange  userHomeEndPosition = [simUserDirectoryPath rangeOfString:@"/Library/Developer"];
-			NSString *macUserHomePath    = [simUserDirectoryPath substringToIndex:userHomeEndPosition.location];
-			dciDirectoryPath = [macUserHomePath stringByAppendingPathComponent:@".dyci"];
-		}
-	}
-
-	NSLog(@"DYCI directory path is : %@", dciDirectoryPath);
-	return dciDirectoryPath;
++ (NSString *)createDirectory {
+    NSString *dyciPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"dyci"];
+    [[NSFileManager defaultManager] createDirectoryAtPath:dyciPath withIntermediateDirectories:YES attributes:nil error:nil];
+    return dyciPath;
 }
 
 #pragma mark - Injections

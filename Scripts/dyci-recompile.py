@@ -102,7 +102,7 @@ def copyResource(source, dyci):
 DYCI_ROOT_DIR = os.path.expanduser('~/.dyci')
 
 #removing old library and resources
-removeDynamicLibsFromDirectory(DYCI_ROOT_DIR)
+removeDynamicLibsFromDirectory(DYCI_ROOT_DIR+"/dyci")
 
 args = sys.argv
 
@@ -219,17 +219,15 @@ linkArgs = \
 + ["-current_version"]\
 + ["5"]\
 + ["-o"]\
-+ [DYCI_ROOT_DIR + "/tmp/" + libraryName]\
-#       + ['-v']
++ [DYCI_ROOT_DIR + "/dyci/" + libraryName]\
++ ['-v']
+
 
 # print "Linker args \n%s" % ' '.join(linkArgs)
 runAndFailOnError(linkArgs)
 print "Linked\n"
 
 #sign
-signArgs = ["/usr/bin/codesign"] + ["-s"] + ["-"] + ["-vvvv"] + ["-f"] + [DYCI_ROOT_DIR + "/tmp/" + libraryName]
+signArgs = ["/usr/bin/codesign"] + ["-s"] + [args[2]] + ["-vvvv"] + ["-f"] + [DYCI_ROOT_DIR + "/dyci/" + libraryName]
 runAndFailOnError(signArgs)
 print "Signed " + libraryName + "\n"
-
-moveArgs = ["mv", DYCI_ROOT_DIR + "/tmp/" + libraryName, DYCI_ROOT_DIR + "/" + libraryName]
-runAndFailOnError(moveArgs)
