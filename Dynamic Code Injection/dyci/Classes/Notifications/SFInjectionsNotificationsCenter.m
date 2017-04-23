@@ -8,7 +8,7 @@
 
 #import "SFInjectionsNotificationsCenter.h"
 
-#if TARGET_IPHONE_SIMULATOR
+#if DEBUG
 
 /*
  notification.object will be the class that was injected

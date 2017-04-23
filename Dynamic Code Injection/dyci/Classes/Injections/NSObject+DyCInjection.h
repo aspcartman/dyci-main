@@ -7,7 +7,7 @@
 //
 #import <Foundation/Foundation.h>
 
-#if TARGET_IPHONE_SIMULATOR
+#if DEBUG
 
 /*
  Methods that will be called on object, that are waiting for injection

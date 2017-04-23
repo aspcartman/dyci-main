@@ -14,7 +14,7 @@
 #import "SFInjectionsNotificationsCenter.h"
 
 
-#if TARGET_IPHONE_SIMULATOR
+#if DEBUG
 
 @interface SFDynamicCodeInjection () <SFFileWatcherDelegate>
 

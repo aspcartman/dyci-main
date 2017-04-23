@@ -22,7 +22,6 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		1737C219C5FEFF5353EA18D7 /* SFDYCIDefines.h in Headers */ = {isa = PBXBuildFile; fileRef = 1737CA9177E2DF86AF069946 /* SFDYCIDefines.h */; };
 		73B68F761A0AB7BC009F6D44 /* dyci.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 73B68F751A0AB7BC009F6D44 /* dyci.h */; };
 		73B68F8A1A0AB7DE009F6D44 /* SFInjectionsNotificationsCenter.m in Sources */ = {isa = PBXBuildFile; fileRef = E4584ADB1759CC5E00460B8C /* SFInjectionsNotificationsCenter.m */; };
 		73B68F8B1A0AB7E2009F6D44 /* NSSet+ClassesList.m in Sources */ = {isa = PBXBuildFile; fileRef = E4CA14231665491800080374 /* NSSet+ClassesList.m */; };
@@ -65,7 +64,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		1737CA9177E2DF86AF069946 /* SFDYCIDefines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SFDYCIDefines.h; sourceTree = "<group>"; };
 		73B68F731A0AB7BC009F6D44 /* libdyci.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libdyci.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		73B68F751A0AB7BC009F6D44 /* dyci.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dyci.h; sourceTree = "<group>"; };
 		E4584ADA1759CC5E00460B8C /* SFInjectionsNotificationsCenter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SFInjectionsNotificationsCenter.h; sourceTree = "<group>"; };
@@ -169,7 +167,6 @@
 				E4CA14281665491800080374 /* Injections */,
 				E4CA142B1665491800080374 /* SFDynamicCodeInjection.h */,
 				E4CA142C1665491800080374 /* SFDynamicCodeInjection.m */,
-				1737CA9177E2DF86AF069946 /* SFDYCIDefines.h */,
 			);
 			name = Classes;
 			path = ../../dyci/Classes;
@@ -222,7 +219,6 @@
 				73B68F951A0AB829009F6D44 /* SFFileWatcherDelegate.h in Headers */,
 				73B68F961A0AB82C009F6D44 /* UIViewController+XIBSupport.h in Headers */,
 				73B68F971A0AB82E009F6D44 /* NSObject+DyCInjection.h in Headers */,
-				1737C219C5FEFF5353EA18D7 /* SFDYCIDefines.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

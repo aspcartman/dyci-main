@@ -9,7 +9,7 @@
 #import <Foundation/Foundation.h>
 #import "SFFileWatcherDelegate.h"
 
-#if TARGET_IPHONE_SIMULATOR
+#if DEBUG
 
 /*
  File watcher object.

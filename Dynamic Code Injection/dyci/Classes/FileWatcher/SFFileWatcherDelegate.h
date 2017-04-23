@@ -9,7 +9,7 @@
 #import <Foundation/Foundation.h>
 
 
-#if TARGET_IPHONE_SIMULATOR
+#if DEBUG
 
 /*
  Object that get notified by SFFileWatcher, when some files are changed in the

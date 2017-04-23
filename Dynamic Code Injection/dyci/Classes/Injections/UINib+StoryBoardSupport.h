@@ -9,7 +9,7 @@
 #import <UIKit/UIKit.h>
 
 
-#if TARGET_IPHONE_SIMULATOR
+#if DEBUG
 
 /*
  It seems that storyboard passing some options, when instantiating the nibs

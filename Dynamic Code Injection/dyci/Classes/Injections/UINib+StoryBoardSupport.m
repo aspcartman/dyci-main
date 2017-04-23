@@ -8,7 +8,7 @@
 #import "UINib+StoryBoardSupport.h"
 #import "SFDYCIDefines.h"
 
-#if TARGET_IPHONE_SIMULATOR
+#if DEBUG
 
 DYCI_FIX_CATEGORY_BUG(UINib_StoryBoardSupport);
 

@@ -8,19 +8,19 @@
 
 #import <Foundation/Foundation.h>
 
-#if TARGET_IPHONE_SIMULATOR
+#if DEBUG
 
 /*
  
  You can observe for changes in any class by saying
 
- #if TARGET_IPHONE_SIMULATOR
+ #if DEBUG
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(classInjectionNotification:) name:@"SFInjectionsClassInjectedNotification" object:nil];
  #endif
  
  Or by specifying a specific class
 
- #if TARGET_IPHONE_SIMULATOR
+ #if DEBUG
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(myViewControllerClassInjectionNotification:) name:@"SFInjectionsClassInjectedNotification" object:(id)[MyViewController class]];
  #endif
  

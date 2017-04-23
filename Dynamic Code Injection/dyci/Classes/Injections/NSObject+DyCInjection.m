@@ -12,7 +12,7 @@
 #import "SFInjectionsNotificationsCenter.h"
 #import "SFDYCIDefines.h"
 
-#if TARGET_IPHONE_SIMULATOR
+#if DEBUG
 
 void swizzle(Class c, SEL orig, SEL new) {
    Method origMethod = class_getInstanceMethod(c, orig);

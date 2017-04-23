@@ -9,7 +9,7 @@
 #import "SFDYCIDefines.h"
 
 
-#if TARGET_IPHONE_SIMULATOR
+#if DEBUG
 
 @interface NSSet (ClassesList)
 
